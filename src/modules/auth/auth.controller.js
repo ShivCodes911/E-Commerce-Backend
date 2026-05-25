@@ -1,0 +1,234 @@
+import userModel from "../../models/user.models.js";
+import otpModel from "../../models/otp.model.js";
+import sessionModel from "../../models/session.model.js";
+
+import bcrypt from "bcrypt";
+import crypto from "crypto";
+import jwt from "jsonwebtoken";
+
+
+import {loginPostBodyRequestSchema, signupPostRequestBodySchema, verifyEmailPostRequestBodySchema} from "../../validations/auth.validation.js";
+import { generateOtp,generateOtpHtml } from "../../utils/generateOtp.js";
+
+import {sendEmail} from "../../utils/sendEmail.js";
+import { text } from "stream/consumers";
+
+
+
+export const  signup=async(req,res,next)=>{
+    try {
+        const validationResult = await signupPostRequestBodySchema.safeParseAsync(req.body);
+
+        if(!validationResult.success){
+            return res.status(400).json({
+                status:false,
+                message:"Enter valid credentials"
+            })
+        };
+
+        const {name,email,password,phone,role}=validationResult.data;
+
+        const existingUser=await userModel.findOne({email});
+
+        if(existingUser){
+            return res.status(409).json({
+                status:false,
+                message:"User already Exist with this Email !"
+            });
+        };
+
+        const hashedPassword= await bcrypt.hash(password,10);
+        
+        const user = await userModel.create({
+            name,
+            email,
+            password:hashedPassword,
+            phone,
+            role
+         });
+
+         const otp=generateOtp();
+         const otpHtml=generateOtpHtml(otp);
+
+         const hashedOtp=crypto.createHash("sha256").update(otp).digest("hex");
+
+         await otpModel.create({
+            user:user._id,
+            email,
+            hashOtp:hashedOtp,
+            purpose:"email_verification",
+            expireAt:new Date(Date.now()+10*60*1000),//10 min
+        });
+
+        await sendEmail(
+            email,
+            "OTP for Email Verification",
+            `Your Otp code for Email Verication is ${otp} for next 10 min`,
+            otpHtml
+         );
+
+         return res.status(201).json({
+            status:true,
+            message:"User registered Successfully!,OTP set to email"
+         })
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const verifyEmail=async(req,res,next)=>{
+try {
+const validationResult= await verifyEmailPostRequestBodySchema.safeParseAsync(req.body);
+
+if(!validationResult.success){
+    return res.status(400).json({
+        status:false,
+        message:"Enter valid Email and Otp"
+    })
+}
+
+const {email,otp}=validationResult.data;
+
+const hashedOtp=crypto.createHash("sha256").update(otp).digest("hex");
+
+const otpDoc=await otpModel.findOne({
+    email,
+    hashOtp:hashedOtp,
+    purpose:"email_verification",
+    isUsed:false
+});
+
+if(!otpDoc){
+    return res.status(400).json({
+        status:false,
+        message:"Invalid Otp or Email"
+    })
+};
+
+if(otpDoc.expireAt <  new Date()){
+    await otpModel.deleteMany({email});
+
+    return res.status(400).json({
+        status:false,
+        message:"OTP expired",
+    })
+}
+
+const existingUser = await userModel.findById(otpDoc.user);
+
+if(!existingUser){
+    return res.status(404).json({
+        status:false,
+        message:"User not found"
+    })
+}
+
+if(existingUser.isEmailVerified){
+    return res.status(400).json({
+        status:false,
+        message:"User is already Verified"
+    })
+}
+
+const updatedUser=await userModel.findByIdAndUpdate(otpDoc.user,{
+        isEmailVerified:true
+},
+{new:true});
+
+await otpModel.deleteMany({
+    user:otpDoc.user
+});
+
+return res.status(200).json({
+    status:true,
+    message:"Email Verified Successfully ",
+    user:{
+        id:updatedUser._id,
+        name:updatedUser.name,
+        email:updatedUser.email,
+        isEmailVerified:updatedUser.isEmailVerified,
+    }
+});
+
+} catch (error) {
+    next(error);
+}
+};
+
+export const login=async(req,res,next)=>{
+    try {
+        const validationResult=await loginPostBodyRequestSchema.safeParseAsync(req.body);
+        if(!validationResult.success){
+            return res.status(400).json({
+                status:false,
+                message:"Enter proper Credentials"
+            })
+        }
+
+        const {email,password}=validationResult.data;
+
+        const existingUser=await userModel.findOne({email});
+
+        if(!existingUser){
+            return res.status(404).json({
+                status:false,
+                message:"User not Found"
+            })
+        }
+
+        if(!existingUser.isEmailVerified){
+            return res.status(403).json({
+                status:false,
+                message:"User is not Verified !"
+            })
+        }
+
+        const isPasswordMatch=await bcrypt.compare(password,existingUser.password);
+        
+        if(!isPasswordMatch){
+            return res.status(401).json({
+                status:false,
+                message:"Enter valid Password !"
+            })
+        }
+
+        const refreshToken=   jwt.sign({id:existingUser.id,email:existingUser.email},process.env.REFRESH_TOKEN_SECRET,{expiresIn:"7d"});
+        
+        
+        const hashedRefreshToken= crypto.createHash("sha256").update(refreshToken).digest("hex");
+
+        const session =await sessionModel.create({
+            userId:existingUser.id,
+            hash:hashedRefreshToken,
+            ip:req.ip,
+            userAgent:req.headers["user-agent"],
+        });
+        const accessToken= jwt.sign({id:existingUser.id,session:session._id},process.env.ACCESS_TOKEN_SECRET,{expiresIn:"10m"});
+
+        res.cookie("refreshToken",refreshToken,{
+            httpOnly:true,
+            secure:process.env.NODE_ENV ==="production",
+            sameSite:process.env.NODE_ENV==="production"?"none":"strict",
+            maxAge:7*24*60*60*1000,
+         });
+
+
+         return res.status(200).json({
+            status:true,
+            message:"Login Successfully !!",
+            user:{
+                id:existingUser.id,
+                profileImage:existingUser.avatar,
+                name:existingUser.name,
+                email:existingUser.email,
+                isEmailVerified:existingUser.isEmailVerified,
+             },
+            token:accessToken
+         });
+
+
+    } catch (error) {
+        next(error);
+        
+    }
+}

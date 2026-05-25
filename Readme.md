@@ -64,7 +64,7 @@ Use standard Express responses everywhere. Do **not** create custom helper class
 **Success response:**
 ```js
 res.status(200).json({
-  success: true,
+  status: true,
   message: "Product fetched successfully",
   data: product
 });
@@ -73,7 +73,7 @@ res.status(200).json({
 **Error response:**
 ```js
 res.status(404).json({
-  success: false,
+  status: false,
   message: "Product not found"
 });
 ```
@@ -97,7 +97,7 @@ export const getProduct = async (req, res, next) => {
     }
 
     res.status(200).json({
-      success: true,
+      status: true,
       data: product,
     });
   } catch (error) {
@@ -166,11 +166,12 @@ If a helper doesn't significantly reduce duplication, don't create it.
 
 ---
 
-## 🗄️ All Database Collections (12 Total)
+## 🗄️ All Database Collections (13 Total)
 
 | Collection | Purpose |
 |---|---|
 | users | All registered users (customer, supplier, admin) |
+| sessions | Login sessions for refresh-token control, device tracking, and logout |
 | otps | Temporary OTPs for verification and login |
 | stores | Supplier store profiles |
 | categories | Product categories |
@@ -188,9 +189,9 @@ If a helper doesn't significantly reduce duplication, don't create it.
 Build Mongoose models in this order — later models reference earlier ones:
 
 ```
-1. User  →  2. OTP  →  3. Store  →  4. Category  →  5. Product
-→  6. Wishlist  →  7. Cart  →  8. Coupon  →  9. Order
-→  10. Payment  →  11. Review  →  12. Notification
+1. User  →  2. Session  →  3. OTP  →  4. Store  →  5. Category  →  6. Product
+→  7. Wishlist  →  8. Cart  →  9. Coupon  →  10. Order
+→  11. Payment  →  12. Review  →  13. Notification
 ```
 
 > Start simple. Create only required fields first, then add more as each phase begins.
@@ -218,6 +219,7 @@ shopkart-api/
 │   │
 │   ├── models/
 │   │   ├── user.model.js
+│   │   ├── session.model.js
 │   │   ├── otp.model.js
 │   │   ├── store.model.js
 │   │   ├── category.model.js
@@ -377,7 +379,7 @@ Incoming Request → Route → Controller → Service → Database → Response
 ```
 
 ### 💡 Why This Way?
-Separating routes → controllers → services means each layer has exactly one job. When something breaks, you know which layer to look in. The consistent `{ success, message, data }` response shape makes frontend integration and Postman testing much easier.
+Separating routes → controllers → services means each layer has exactly one job. When something breaks, you know which layer to look in. The consistent `{ status, message, data }` response shape makes frontend integration and Postman testing much easier.
 
 ---
 
@@ -389,7 +391,7 @@ Let all three user types (Customer, Supplier, Admin) register and log in securel
 ### 🧱 What You're Building
 - Register API (role is passed during registration)
 - Login API (returns Access Token + Refresh Token)
-- Logout API (clears refresh token)
+- Logout API (revokes the current session)
 - RBAC middleware (checks role before every protected route)
 
 ---
@@ -405,11 +407,25 @@ Let all three user types (Customer, Supplier, Admin) register and log in securel
 | phone | String | Contact number |
 | avatar | `{ url, publicId }` | Profile picture — added in Phase 5 |
 | isEmailVerified | Boolean | Set to true after OTP verification (Phase 3) |
-| refreshToken | String | Stored in DB to support logout and token rotation |
 | addresses | Array | Customer delivery addresses — added in Phase 5 |
 | isActive | Boolean | False = account is disabled |
 
 > Start with just `name`, `email`, `password`, `role` for Phase 2. Add the rest as those phases arrive.
+
+---
+
+### 🗄️ Model 2: Session
+
+| Field | Type | Purpose |
+|---|---|---|
+| userId | ObjectId (ref: User) | Which user owns this login session |
+| hash | String | Hash of the refresh token/session token, never the raw token |
+| ip | String | IP address used when the session was created |
+| userAgent | String | Browser/app/device details from the request |
+| revoked | Boolean | True after logout or manual session invalidation |
+| timestamps | Date | `createdAt` and `updatedAt` for session tracking |
+
+> Sessions let you support multiple devices, logout from one device, logout from all devices, and suspicious-login tracking later.
 
 ---
 
@@ -438,7 +454,9 @@ Compare password with bcrypt hash
     ↓
 Generate Access Token (15 mins) + Refresh Token (7 days)
     ↓
-Save Refresh Token in user document
+Hash refresh token
+    ↓
+Create session document with userId, hash, ip, userAgent, revoked = false
     ↓
 Return both tokens
 ```
@@ -447,9 +465,11 @@ Return both tokens
 ```
 Request with valid access token
     ↓
-Clear refreshToken in user's DB document
+Find current session
     ↓
-Logged out (access token expires on its own)
+Set session.revoked = true
+    ↓
+Logged out (access token expires on its own, refresh token can no longer be used)
 ```
 
 ### 🔁 RBAC Middleware Flow
@@ -465,7 +485,7 @@ Not permitted? → 403 Forbidden
 ```
 
 ### 💡 Why This Way?
-Passwords are hashed with bcrypt — a leaked database reveals nothing. Two tokens exist because the access token expires quickly (security), and the refresh token silently fetches a new one without forcing re-login. Storing `refreshToken` in the DB means logout actually works — clearing it invalidates the token everywhere.
+Passwords are hashed with bcrypt — a leaked database reveals nothing. Two tokens exist because the access token expires quickly (security), and the refresh token silently fetches a new one without forcing re-login. Storing only a hashed refresh token in a `sessions` collection means logout actually works, without saving raw tokens in the database.
 
 ---
 
@@ -482,14 +502,15 @@ Verify that users own their email. Support OTP login, resend OTP, and forgot pas
 
 ---
 
-### 🗄️ Model 2: OTP
+### 🗄️ Model 3: OTP
 
 | Field | Type | Purpose |
 |---|---|---|
+| user | ObjectId (ref: User) | Which user this OTP belongs to |
 | email | String | Who this OTP belongs to |
-| otp | String | 6-digit code (store hashed) |
+| hashOtp | String | SHA-256 hash of the 6-digit OTP |
 | purpose | String (enum) | `"email_verification"` / `"otp_login"` / `"forgot_password"` |
-| expiresAt | Date | OTP invalid after this timestamp |
+| expireAt | Date | OTP invalid after this timestamp |
 | isUsed | Boolean | Marks OTP as consumed after first use |
 | attempts | Number | Tracks failed attempts to prevent brute force |
 
@@ -499,15 +520,87 @@ Verify that users own their email. Support OTP login, resend OTP, and forgot pas
 
 ### 🔁 Email Verification Flow
 ```
-User registers
+POST /api/v1/auth/signup
     ↓
-Generate 6-digit OTP → Save with purpose = "email_verification", expiry = 10 mins
+Validate body: name, email, password, phone, role?
     ↓
-Send OTP via email
+Invalid body?
+    → 400 { status: false, message }
     ↓
-User submits OTP → Check: match? within expiry? isUsed = false?
+Check user by email
     ↓
-All good → Mark OTP as used, set user.isEmailVerified = true
+Email already exists?
+    → 409 { status: false, message: "User already exists" }
+    ↓
+Hash password with bcrypt
+    ↓
+Create user with isEmailVerified = false
+    ↓
+Generate 6-digit OTP
+    ↓
+Hash OTP with SHA-256
+    ↓
+Create OTP document:
+    user, email, hashOtp, purpose = "email_verification", expireAt = now + 10 mins
+    ↓
+Send OTP email
+    ↓
+Return 201 { status: true, message: "OTP sent to email" }
+
+catch(error)
+    → next(error)
+    → errorMiddleware returns 500 if unhandled
+```
+
+### 🔁 Verify Email Route Flow
+```
+POST /api/v1/auth/verify-email
+    ↓
+Validate body: email, otp
+    ↓
+Invalid body?
+    → 400 { status: false, message }
+    ↓
+Take otp + email from validated data
+    ↓
+Hash submitted OTP with SHA-256
+    ↓
+Find OTP document by:
+    email,
+    hashOtp,
+    purpose = "email_verification",
+    isUsed = false
+    ↓
+OTP document not found?
+    → 400 { status: false, message: "Invalid OTP" }
+    ↓
+OTP expired? (otpDoc.expireAt < new Date())
+    → delete OTPs for this email
+    → 400 { status: false, message: "OTP Expired" }
+    ↓
+Find user by otpDoc.user
+    ↓
+User not found?
+    → 404 { status: false, message: "User not found" }
+    ↓
+User already verified? (user.isEmailVerified === true)
+    → 400 { status: false, message: "User already verified" }
+    ↓
+Update user:
+    isEmailVerified = true
+    ↓
+Delete all OTPs for this user
+    ↓
+Return 200:
+    {
+      status: true,
+      message: "Email verified successfully",
+      user: { id, name, email, isEmailVerified }
+    }
+
+catch(error)
+    → next(error)
+    → errorMiddleware returns 500 if unhandled
 ```
 
 ### 🔁 Forgot Password Flow
@@ -615,7 +708,7 @@ Let suppliers create a store profile with a logo. One store per supplier — enf
 
 ---
 
-### 🗄️ Model 3: Store
+### 🗄️ Model 4: Store
 
 | Field | Type | Purpose |
 |---|---|---|
@@ -665,7 +758,7 @@ Organize products into categories for browsing and filtering.
 
 ---
 
-### 🗄️ Model 4: Category
+### 🗄️ Model 5: Category
 
 | Field | Type | Purpose |
 |---|---|---|
@@ -697,7 +790,7 @@ Build the core product catalog. Support multiple images. Enforce supplier owners
 
 ---
 
-### 🗄️ Model 5: Product
+### 🗄️ Model 6: Product
 
 | Field | Type | Purpose |
 |---|---|---|
@@ -784,7 +877,7 @@ Let customers save products and move them to cart when ready.
 
 ---
 
-### 🗄️ Model 6: Wishlist
+### 🗄️ Model 7: Wishlist
 
 | Field | Type | Purpose |
 |---|---|---|
@@ -817,7 +910,7 @@ Let customers collect items with quantities, see a running total, and apply coup
 
 ---
 
-### 🗄️ Model 7: Cart
+### 🗄️ Model 8: Cart
 
 | Field | Type | Purpose |
 |---|---|---|
@@ -864,7 +957,7 @@ Let admins create discount codes with rules and limits. Let customers apply them
 
 ---
 
-### 🗄️ Model 8: Coupon
+### 🗄️ Model 9: Coupon
 
 | Field | Type | Purpose |
 |---|---|---|
@@ -908,7 +1001,7 @@ Convert a cart into a confirmed, permanent order — with a full price and produ
 
 ---
 
-### 🗄️ Model 9: Order
+### 🗄️ Model 10: Order
 
 | Field | Type | Purpose |
 |---|---|---|
@@ -959,7 +1052,7 @@ Accept real online payments. Create the payment on the backend (amount can't be 
 
 ---
 
-### 🗄️ Model 10: Payment
+### 🗄️ Model 11: Payment
 
 | Field | Type | Purpose |
 |---|---|---|
@@ -1095,7 +1188,7 @@ Let customers leave reviews (with optional photos) on products they actually rec
 
 ---
 
-### 🗄️ Model 11: Review
+### 🗄️ Model 12: Review
 
 | Field | Type | Purpose |
 |---|---|---|
@@ -1139,7 +1232,7 @@ Automatically inform users about key events — orders, payments, deliveries.
 
 ---
 
-### 🗄️ Model 12: Notification
+### 🗄️ Model 13: Notification
 
 | Field | Type | Purpose |
 |---|---|---|
@@ -1239,7 +1332,7 @@ Ensure everything works end to end and document it clearly.
 ### ✅ Final Quality Checklist
 - No broken routes (every route returns a response, even on errors)
 - No duplicate logic (shared logic lives in services)
-- Consistent response format: `{ success, message, data }` on every API
+- Consistent response format: `{ status, message, data }` on every API
 - Every error has a clear message and the right HTTP status code
 - No sensitive data in responses (passwords, tokens, secrets)
 - All Cloudinary images cleaned up when replaced
@@ -1265,7 +1358,7 @@ Ensure everything works end to end and document it clearly.
 | Phase | Name | Model Built | Key Skill |
 |---|---|---|---|
 | 1 | Project Foundation | — | Express, MongoDB, error handling, folder structure |
-| 2 | Auth + Roles | **User** | Register, Login, JWT, RBAC middleware |
+| 2 | Auth + Roles | **User, Session** | Register, Login, JWT, session tracking, RBAC middleware |
 | 3 | Email Verification + OTP | **OTP** | Nodemailer, OTP flows, forgot password |
 | 4 | Multer + Cloudinary Setup | — | File upload helpers |
 | 5 | User Profile + Avatar | User (avatar + addresses) | Profile CRUD, avatar upload |
