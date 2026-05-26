@@ -7,11 +7,11 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 
 
-import {loginPostBodyRequestSchema, signupPostRequestBodySchema, verifyEmailPostRequestBodySchema} from "../../validations/auth.validation.js";
+import {forgotPasswordPostBodyRequestSchema, loginPostBodyRequestSchema, resetPasswordPostBodyRequestSchema, signupPostRequestBodySchema, verifyEmailPostRequestBodySchema} from "../../validations/auth.validation.js";
 import { generateOtp,generateOtpHtml } from "../../utils/generateOtp.js";
 
 import {sendEmail} from "../../utils/sendEmail.js";
-import { text } from "stream/consumers";
+
 
 
 
@@ -203,7 +203,7 @@ export const login=async(req,res,next)=>{
             ip:req.ip,
             userAgent:req.headers["user-agent"],
         });
-        const accessToken= jwt.sign({id:existingUser.id,session:session._id},process.env.ACCESS_TOKEN_SECRET,{expiresIn:"10m"});
+        const accessToken= jwt.sign({id:existingUser.id,sessionId:session._id,role:existingUser.role},process.env.ACCESS_TOKEN_SECRET,{expiresIn:"10m"});
 
         res.cookie("refreshToken",refreshToken,{
             httpOnly:true,
@@ -228,6 +228,169 @@ export const login=async(req,res,next)=>{
 
 
     } catch (error) {
+        next(error);
+        
+    }
+};
+
+
+export const logout =async(req,res,next)=>{
+    try {
+        const refreshToken = req.cookies.refreshToken;
+
+    if(!refreshToken){
+        return res.status(400).json({
+            status:false,
+            message:"Refresh Token not found !"
+        })
+    }
+
+    const hashedRefreshToken= crypto.createHash("sha256").update(refreshToken).digest("hex");
+
+    const session = await sessionModel.findOne({
+        hash:hashedRefreshToken,
+        revoked:false
+});
+
+if(!session){
+    return res.status(401).json({
+        status:false,
+        message:"Invalid refresh Token !"
+    })
+}
+session.revoked=true;
+
+await session.save();
+
+res.clearCookie("refreshToken",{
+    httpOnly:true,
+    secure:process.env.NODE_ENV ==="production",
+    sameSite:process.env.NODE_ENV==="production"?"none":"strict"
+});
+
+return res.status(200).json({
+    status:true,
+    message:"Logged out Successfully"
+});
+
+} catch (error) {
+        next(error);
+        }
+
+};
+
+
+
+export const forgotPassword=async(req,res,next)=>{
+    try {
+        const validationResult=await forgotPasswordPostBodyRequestSchema.safeParseAsync(req.body);
+
+        if(!validationResult.success){
+            return res.status(401).json({
+                status:false,
+                message:"Enter the valid Email"
+            })
+        }
+        const {email}=validationResult.data;
+
+        const user=await userModel.findOne({email});
+
+        if(!user){
+            return res.status(401).json({
+                status:false,
+                message:"User does not Exist"
+            })
+        }
+
+        const otp=generateOtp();
+        const otpHtml=generateOtpHtml(otp);
+
+        const hashedOtp=crypto.createHash("sha256").update(otp).digest("hex");
+        
+        await otpModel.deleteMany({
+            email,
+            purpose:"forgot_password"
+        });
+
+        await otpModel.create({
+            user:user._id,
+            email,
+            hashOtp:hashedOtp,
+            purpose:"forgot_password",
+            expireAt:new Date(Date.now() + 10*60*1000) // for 10 min
+        });
+
+        await sendEmail(email,"Password Reset OTP",`Your Otp is ${otp} for next 10 min`,otpHtml);
+
+        return res.status(201).json({
+            status:true,
+            message:"Password reset OTP sent to email"
+        })
+
+
+    } catch (error) {
+        next(error);
+        
+    }   
+};
+
+
+export const resetPassword=async(req,res,next)=>{
+    try {
+        const validationResult=await resetPasswordPostBodyRequestSchema.safeParseAsync(req.body);
+
+        if(!validationResult.success){
+            return res.status(400).json({
+                status:false,
+                message:"Enter valid credentials"
+            })
+        }
+
+        const {email,otp,newPassword}=validationResult.data;
+
+        const hashedOtp=crypto.createHash("sha256").update(otp).digest("hex");
+        const hashedNewPassword=await bcrypt.hash(newPassword,10);
+
+        const otpDoc=await otpModel.findOne({
+            email,
+            hashOtp:hashedOtp,
+            purpose:"forgot_password",
+            isUsed:false
+        });
+
+        if(!otpDoc){
+            return res.status(403).json({
+                status:false,
+                message:"Error:Invalid otp"
+            })
+        };
+
+        if(otpDoc.expireAt < new Date() ){
+                await otpModel.deleteOne({ _id: otpDoc._id });
+            return res.status(400).json({
+                status:false,
+                message:"Otp Expired"
+            })
+        }
+
+        const user = await userModel.findOne({email});
+        if(!user){
+            return res.status(404).json({
+                status:false,
+                message:"User not found"
+            })
+        }
+
+        user.password=hashedNewPassword;
+        await user.save();
+
+        await otpModel.deleteOne({_id:otpDoc._id});
+
+        return res.status(200).json({
+            status:true,
+            message:"Password Reset Successfully"
+        })
+} catch (error) {
         next(error);
         
     }
