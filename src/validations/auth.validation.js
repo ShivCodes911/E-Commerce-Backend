@@ -27,5 +27,13 @@ export const resetPasswordPostBodyRequestSchema=z.object({
     email:z.string().email().toLowerCase().trim(),
     otp:z.string().length(6,"Otp must be 6 letter long"),
     newPassword:z.string().min(3,"Password should atleast contain 3 letters ! ")
-})
+});
+
+export const resendOtpBodySchema=z.object({
+    email:z.string().email().toLowerCase().trim()
+});
+
+export const requestLoginOtpBodySchema=z.object({
+    email:z.string().email().toLowerCase().trim()
+});
 

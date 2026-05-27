@@ -7,10 +7,11 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 
 
-import {forgotPasswordPostBodyRequestSchema, loginPostBodyRequestSchema, resetPasswordPostBodyRequestSchema, signupPostRequestBodySchema, verifyEmailPostRequestBodySchema} from "../../validations/auth.validation.js";
+import {forgotPasswordPostBodyRequestSchema, loginPostBodyRequestSchema, requestLoginOtpBodySchema, resendOtpBodySchema, resetPasswordPostBodyRequestSchema, signupPostRequestBodySchema, verifyEmailPostRequestBodySchema} from "../../validations/auth.validation.js";
 import { generateOtp,generateOtpHtml } from "../../utils/generateOtp.js";
 
 import {sendEmail} from "../../utils/sendEmail.js";
+
 
 
 
@@ -391,6 +392,226 @@ export const resetPassword=async(req,res,next)=>{
             message:"Password Reset Successfully"
         })
 } catch (error) {
+        next(error);
+        
+    }
+};
+
+
+export const resendOtp=async(req,res,next)=>{
+    try {
+        const validationResult=await resendOtpBodySchema.safeParseAsync(req.body);
+
+        if(!validationResult.success){
+            return res.status(400).json({
+                status:false,
+                message:"Enter valid Email"
+            })
+        }
+
+        const {email}=validationResult.data;
+
+        const existingUser=await userModel.findOne({email});
+
+        if(!existingUser){
+            return res.status(404).json({
+                status:false,
+                message:"User not found"
+            })
+        }
+
+        if(existingUser.isEmailVerified){
+            return res.status(400).json({
+                status:false,
+                message:"User already Verified "
+            })
+        }
+
+        await otpModel.deleteMany({
+            email,
+            purpose:"email_verification"
+        });
+
+        const otp=generateOtp();
+        const otpHtml=generateOtpHtml(otp);
+
+        const hashedOtp=crypto.createHash("sha256").update(otp).digest("hex");
+
+            await otpModel.create({
+            user:existingUser._id,
+            email,
+            hashOtp:hashedOtp,
+            purpose:"email_verification",
+            expireAt:new Date(Date.now()+10*60*1000),
+
+        });
+
+        await sendEmail(email,
+            "Resend OTP on Email",
+            `Your OTP is ${otp} for next 10 min`,
+            otpHtml);
+
+        return res.status(200).json({
+            status:true,
+            message:"OTP resent to Email"
+        })
+        
+    } catch (error) {
+        next(error);
+    }
+}
+
+export const requestLoginOtp=async (req,res,next)=>{
+    try {
+        const validationResult=await requestLoginOtpBodySchema.safeParseAsync(req.body);
+        if(!validationResult.success){
+            return res.status(400).json({
+                status:false,
+                message:"Enter the valid Email"
+            })
+        }
+        const{email}=validationResult.data;
+
+        const existingUser=await userModel.findOne({email});
+
+        if(!existingUser){
+            return res.status(404).json({
+                status:false,
+                message:"User does not Exist "
+            })
+        }
+
+        if(!existingUser.isEmailVerified){
+            return res.status(403).json({
+                status:false,
+                message:"verify the email"
+        })
+        }
+
+        await otpModel.deleteMany({
+            email,
+            purpose:"otp_login"
+        });
+
+        const otp=generateOtp();
+        const otpHtml=generateOtpHtml(otp);
+
+        const hashedOtp=crypto.createHash("sha256").update(otp).digest("hex");
+
+        await otpModel.create({
+            user:existingUser._id,
+            email,
+            hashOtp:hashedOtp,
+            purpose:"otp_login",
+            expireAt:new Date(Date.now()+10*60*1000)
+            })
+
+            await sendEmail(
+                email,
+                "OTP Request",
+                `Your login OTP is ${otp} for next 10 min`  ,
+              otpHtml
+            );
+
+            return res.status(200).json({
+                status:true,
+                message:"Request send for Otp login"
+            })
+        
+    } catch (error) {
+        next(error);
+        
+    }
+};
+
+
+
+export const verifyLoginOtp=async(req,res,next)=>{
+    try {
+        const validationResult=await verifyEmailPostRequestBodySchema.safeParseAsync(req.body);
+
+        if(!validationResult.success){
+            return res.status(400).json({
+                status:false,
+                message:"Enter valid OTP"
+            })
+        }
+        
+        const {email,otp}=validationResult.data;
+
+        const hashedOtp=crypto.createHash("sha256").update(otp).digest("hex");
+
+        const otpDoc=await otpModel.findOne({
+            email,
+            hashOtp:hashedOtp,
+            purpose:"otp_login",
+            isUsed:false
+        })
+
+        if(!otpDoc){
+            return res.status(400).json({
+                status:false,
+                message:"OTP does not Exist"
+            })
+        }
+
+        if(otpDoc.expireAt< new Date()){
+           await  otpDoc.deleteOne({_id:otpDoc._id});
+
+            return res.status(400).json({
+                status:false,
+                message:"OTP has been Expired "
+            })
+
+        }
+
+        const user = await userModel.findById(otpDoc.user);
+
+        if(!user){
+            return res.status(404).json({
+                status:false,
+                message:"User not Found"
+            })
+        }
+
+        const refreshToken=jwt.sign({id:user._id,email:user.email},process.env.REFRESH_TOKEN_SECRET,{expiresIn:"7d"});
+
+        const hashedRefreshToken= crypto.createHash("sha256").update(refreshToken).digest("hex");
+
+        const session=await sessionModel.create({
+            userId:user._id,
+            hash:hashedRefreshToken,
+            ip:req.ip,
+            userAgent:req.headers["user-agent"]
+        });
+
+        const accessToken=jwt.sign({id:user._id,sessionId:session._id,role:user.role},process.env.ACCESS_TOKEN_SECRET,{expiresIn:"10m"});
+
+        res.cookie("refreshToken",refreshToken,{
+            httpOnly:true,
+            secure:process.env.NODE_ENV==="production" ,
+            sameSite:process.env.NODE_ENV==="production"?"none":"strict",
+            maxAge:7*24*60*60*1000
+        });
+
+        await otpModel.deleteOne({_id:otpDoc._id});
+
+        return res.status(200).json({
+            status:true,
+            message:"Login Successfully",
+            user:{
+                id:user.id,
+                name:user.name,
+                email:user.email,
+                profileImage:user.profileImage,
+                isEmailVerified:user.isEmailVerified
+             },
+             token:accessToken
+        })
+
+
+
+    } catch (error) {
         next(error);
         
     }
