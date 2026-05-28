@@ -1,6 +1,6 @@
 import express from "express";
 
-import { forgotPassword, login, logout, requestLoginOtp, resendOtp, resetPassword, signup, verifyEmail, verifyLoginOtp } from "./auth.controller.js";
+import { forgotPassword, login, logout, refreshAccessToken, requestLoginOtp, resendOtp, resetPassword, signup, verifyEmail, verifyLoginOtp } from "./auth.controller.js";
 import { UserAuthenticationMiddleware } from "../../middlewares/auth.middleware.js";
 
 
@@ -17,5 +17,6 @@ router.post("/reset-password",resetPassword);
 router.post("/resend-otp",resendOtp);
 router.post("/login-otp",requestLoginOtp);
 router.post("/verify-login-otp",verifyLoginOtp);
+router.get("/refresh-token",refreshAccessToken);
 
 export default router;

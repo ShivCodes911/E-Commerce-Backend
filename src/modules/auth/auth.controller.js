@@ -603,7 +603,7 @@ export const verifyLoginOtp=async(req,res,next)=>{
                 id:user.id,
                 name:user.name,
                 email:user.email,
-                profileImage:user.profileImage,
+                profileImage:user.avatar,
                 isEmailVerified:user.isEmailVerified
              },
              token:accessToken
@@ -611,6 +611,78 @@ export const verifyLoginOtp=async(req,res,next)=>{
 
 
 
+    } catch (error) {
+        next(error);
+        
+    }
+};
+
+
+export const refreshAccessToken =async(req,res,next)=>{
+    try {
+        const refreshToken =req.cookies.refreshToken;
+
+        if(!refreshToken){
+            return res.status(401).json({
+                status:false,
+                message:"Refresh Token not Found"
+            })
+        }
+
+        const decodedRefreshToken=jwt.verify(refreshToken,process.env.REFRESH_TOKEN_SECRET);
+
+        if(!decodedRefreshToken){
+            return res.status(400).json({
+                status:false,
+                message:"Refresh token is not correct "
+            })
+        }
+
+        const hashedRefreshToken=crypto.createHash("sha256").update(refreshToken).digest("hex");
+
+        const session=await sessionModel.findOne({
+            hash:hashedRefreshToken,
+            revoked:false
+        });
+
+        if(!session){
+            return res.status(401).json({
+                status:false,
+                message:"Session not found"
+            })
+        }
+
+        const user=await userModel.findById(decodedRefreshToken.id);
+
+        if(!user){
+            return res.status(404).json({
+                status:false,
+                message:"User not found"
+            })
+        }
+
+        const accessToken=jwt.sign({id:user.id,sessionId:session._id,role:user.role},process.env.ACCESS_TOKEN_SECRET,{expiresIn:"10m"});
+
+        const newRefreshToken= jwt.sign({id:user.id,email:user.email},process.env.REFRESH_TOKEN_SECRET,{expiresIn:"7d"});
+
+        const hashedNewRefreshToken=crypto.createHash("sha256").update(newRefreshToken).digest("hex");
+
+       session.hash=hashedNewRefreshToken;
+       await session.save();
+
+       res.cookie("refreshToken",newRefreshToken,{
+        httpOnly:true,
+        secure:process.env.NODE_ENV==="production",
+        sameSite:process.env.NODE_ENV==="production"?"none":"strict",
+        maxAge:7*24*60*60*1000
+
+       });
+       
+       return res.status(200).json({
+        status:true,
+        message:"Token Refreshed Successfully",
+        token:accessToken
+       })
     } catch (error) {
         next(error);
         
