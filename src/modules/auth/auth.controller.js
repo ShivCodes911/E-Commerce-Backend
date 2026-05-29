@@ -184,6 +184,13 @@ export const login=async(req,res,next)=>{
             })
         }
 
+        if(!existingUser.isActive){
+            return res.status(403).json({
+                status:false,
+                message:"Account is Deactivated"
+            })
+        }
+
         const isPasswordMatch=await bcrypt.compare(password,existingUser.password);
         
         if(!isPasswordMatch){
@@ -488,6 +495,13 @@ export const requestLoginOtp=async (req,res,next)=>{
         })
         }
 
+        if(!existingUser.isActive){
+            return res.status(403).json({
+                status:false,
+                message:"Account is Deactivated"
+            })
+        }
+
         await otpModel.deleteMany({
             email,
             purpose:"otp_login"
@@ -571,6 +585,13 @@ export const verifyLoginOtp=async(req,res,next)=>{
             return res.status(404).json({
                 status:false,
                 message:"User not Found"
+            })
+        }
+
+        if(!user.isActive){
+            return res.status(403).json({
+                status:false,
+                message:"Account is Deactivated "
             })
         }
 
@@ -658,6 +679,13 @@ export const refreshAccessToken =async(req,res,next)=>{
             return res.status(404).json({
                 status:false,
                 message:"User not found"
+            })
+        }
+
+        if(!user.isActive){
+            return res.status(403).json({
+                status:false,
+                message:"Account is Deactivated"
             })
         }
 

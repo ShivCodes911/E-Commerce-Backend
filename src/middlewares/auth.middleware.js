@@ -1,5 +1,7 @@
 import jwt from "jsonwebtoken";
 import sessionModel from "../models/session.model.js";
+import userModel from "../models/user.models.js";
+
 
 
 
@@ -33,6 +35,24 @@ try {
             message:"Session Expired or logged out"
         })
     }
+
+    const user=await userModel.findById(decodedAccessToken.id);
+
+    if(!user ){
+        return res.status(404).json({
+            status:false,
+            message:"User not Found"
+        })
+    }
+
+    if(!user.isActive){
+        return res.status(403).json({
+            status:false,
+            message:"Account is Deactivated"
+        })
+    }
+
+    
 
     req.user={
         id:decodedAccessToken.id,

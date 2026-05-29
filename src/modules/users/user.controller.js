@@ -1,5 +1,6 @@
 import sessionModel from "../../models/session.model.js";
 import userModel from "../../models/user.models.js";
+import { deleteFromCloudinary, uploadToCloudinary } from "../../utils/cloudinaryUtil.js";
 
 
 import { addAddressBodySchema, deleteAddressIdSchema, setDefaultAddressIdSchema, updateAddressIdSchema, updateMyProfileBodySchema } from "../../validations/user.validation.js";
@@ -334,6 +335,95 @@ export const deactivate=async(req,res,next)=>{
             status:true,
             message:"Account Deactivated Successfully"
          })
+    } catch (error) {
+        next(error);
+        
+    }
+};
+
+export const updateAvatar=async(req,res,next)=>{
+    try {
+
+        if(!req.file){
+            return res.status(400).json({
+                status:false,
+                message:"Upload any File First"
+            })
+        };
+
+        const id=req.user?.id;
+
+        const user=await userModel.findById(id).select("-password");
+
+        if(!user){
+            return res.status(404).json({
+                status:false,
+                message:"User not found"
+            })
+        }
+
+        const uploadedAvatar=await uploadToCloudinary(req.file.buffer,"shopkart/avatars");
+
+        if(user.avatar?.publicId){
+            await deleteFromCloudinary(user.avatar.publicId);
+        }
+
+        user.avatar={
+            url:uploadedAvatar.url,
+            publicId:uploadedAvatar.publicId
+        };
+
+        await user.save();
+
+ // Current order is safer:
+// Upload new avatar successfully.
+// Delete old avatar.
+// Save new avatar in MongoDB.
+
+        return res.status(200).json({
+            status:true,
+            message:"Avatar updated Successfully",
+            avatar:user.avatar
+        });
+} catch (error) {
+        next(error);
+        
+    }
+};
+
+
+export const deleteAvatar=async(req,res,next)=>{
+    try {
+
+        const id =req.user?.id;
+
+        const existingUser=await userModel.findById(id);
+
+        if(!existingUser){
+            return res.status(400).json({
+                status:false,
+                message:"User not Found"
+            })
+        };
+
+      const publicId=existingUser.avatar?.publicId;
+
+      if(publicId){
+        await deleteFromCloudinary(publicId);
+      }
+
+      existingUser.avatar={
+        url:"",
+        publicId:""
+      }
+
+      await existingUser.save();
+
+      return res.status(200).json({
+            status:true,
+            message:"Avatar removed Successfully",
+            avatar:existingUser.avatar
+      })
     } catch (error) {
         next(error);
         
