@@ -1,6 +1,7 @@
 
 
-export const roleBasedAccessMiddleware=async(req,res,next)=>{
+export const roleBasedAccessMiddleware=(...allowedRoles)=>{
+   return  async(req,res,next)=>{
     try {
 
         const role=req.user?.role;
@@ -12,7 +13,7 @@ export const roleBasedAccessMiddleware=async(req,res,next)=>{
             })
         }
 
-        if (!(role === "supplier" || role === "admin")) {
+        if(!allowedRoles.includes(role)){
             return res.status(403).json({
                 status:false,
                 message:"User does not have Access"
@@ -29,4 +30,5 @@ export const roleBasedAccessMiddleware=async(req,res,next)=>{
         
         
     }
+}
 }

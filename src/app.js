@@ -2,7 +2,8 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import authRouter from "./modules/auth/auth.routes.js";
-import userRouter from "./modules/users/user.routes.js"
+import userRouter from "./modules/users/user.routes.js";
+import storeRouter from "./modules/stores/store.routes.js"
 
 import { errorMiddleware } from "./middlewares/error.middleware.js";
 
@@ -25,6 +26,7 @@ app.get("/",(req,res)=>{
 
 app.use("/api/v1/auth",authRouter);
 app.use("/api/v1/users",userRouter);
+app.use("/api/v1/stores",storeRouter);
 
 app.use(errorMiddleware);
 
