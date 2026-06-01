@@ -2,7 +2,7 @@
 import storeModel from "../../models/store.model.js";
 
 
-import { createStoreBodySchema, updateStoreBodySchema } from "../../validations/store.validation.js";
+import { createStoreBodySchema, storeIdParamSchema, updateStoreBodySchema } from "../../validations/store.validation.js";
 import { generateSlug } from "../../utils/slugify.js";
 import { deleteFromCloudinary, uploadToCloudinary } from "../../utils/cloudinaryUtil.js";
 
@@ -238,4 +238,186 @@ export const deleteStoreLogo=async(req,res,next)=>{
         next(error);
         
     }
-}
+};
+
+
+export const verifyStore=async(req,res,next)=>{
+    try {
+        const validationResult=await storeIdParamSchema.safeParseAsync(req.params);
+        if(!validationResult.success){
+            return res.status(400).json({
+                status:false,
+                message:"Enter the Valid Store Id"
+            })
+        }
+
+        const {storeId}=validationResult.data;
+
+        const store=await storeModel.findById(storeId);
+
+        if(!store){
+            return res.status(404).json({
+                status:false,
+                message:"Store not Found"
+            })
+        }
+
+        if(store.isVerified){
+            return res.status(400).json({
+                status:false,
+                message:"Store is already Verified"
+            })
+        }
+
+        store.isVerified=true;
+
+         await store.save();
+
+         return res.status(200).json({
+            status:true,
+            message:"Store Verified Successfully",
+            data:store
+         })
+
+        } catch (error) {
+        next(error);
+        
+    }
+};
+
+
+export const rejectStore=async(req,res,next)=>{
+    try {
+
+        const validationResult=await storeIdParamSchema.safeParseAsync(req.params);
+
+        if(!validationResult.success){
+            return res.status(400).json({
+                status:false,
+                message:"Enter the valid store Id"
+            })
+        };
+
+        const {storeId}=validationResult.data;
+
+        const store=await storeModel.findById(storeId);
+
+        if(!store){
+            return res.status(404).json({
+                status:false,
+                message:"Store not Found"
+            })
+        }
+
+        if(!store.isVerified){
+            return res.status(400).json({
+                status:false,
+                message:"Store Is already UnVerified"
+            })
+        }
+
+        store.isVerified=false;
+
+        await store.save();
+
+        return res.status(200).json({
+            status:true,
+            message:"Store Undefined Successfully",
+            data:store
+        })
+
+    } catch (error) {
+        next(error);
+        
+    }
+};
+
+
+export const deactivateStore=async(req,res,next)=>{
+    try {
+        const validationResult=await storeIdParamSchema.safeParseAsync(req.params);
+
+        if(!validationResult.success){
+            return res.status(400).json({
+                status:false,
+                message:"Enter the valid Store Id"
+            }) 
+            }
+
+             const {storeId}=validationResult.data;
+
+            const store=await storeModel.findById(storeId);
+
+            if(!store){
+                return res.status(404).json({
+                    status:false,
+                    message:"Store not found"
+                })
+            }
+
+            if(!store.isActive){
+                return res.status(200).json({
+                    status:false,
+                    message:"Store already deactivated"
+                })
+            }
+
+            store.isActive=false;
+
+            await store.save();
+
+            return res.status(200).json({
+                status:true,
+                message:"Store Deactivated Successfully!!",
+                data:store
+            })
+        
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const activateStore=async(req,res,next)=>{
+    try {
+        const validationResult=await storeIdParamSchema.safeParseAsync(req.params);
+
+        if(!validationResult.success){
+            return res.status(400).json({
+                status:false,
+                message:"Enter valid Store ID"
+            })
+        }
+
+        const {storeId}=validationResult.data;
+
+        const store = await storeModel.findById(storeId);
+
+        if(!store){
+            return res.status(404).json({
+                status:false,
+                message:"Store not Found"
+            })
+        }
+
+        if(store.isActive){
+            return res.status(400).json({
+                status:false,
+                message:"Store Already Active"
+            })
+        }
+
+        store.isActive=true;
+
+        await store.save();
+
+        return res.status(200).json({
+            status:true,
+            message:"Store Activated Successfully",
+            data:store
+        })
+        
+    } catch (error) {
+        next(error);
+        
+    }
+};

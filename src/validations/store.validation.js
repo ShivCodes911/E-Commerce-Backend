@@ -13,3 +13,9 @@ export const updateStoreBodySchema = createStoreBodySchema.partial().refine(
     message: "At least one field is required",
   }
 );
+
+export const storeIdParamSchema=z.object({
+  storeId:z
+    .string()
+    .regex(/^[0-9a-fA-F]{24}$/, "Invalid Store Id"),
+});

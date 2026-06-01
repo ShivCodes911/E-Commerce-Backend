@@ -286,4 +286,94 @@ export const deleteCategoryImage=async(req,res,next)=>{
         next(error);
         
     }
+};
+
+export const deactivateCategory=async(req,res,next)=>{
+    try {
+        const validationResult=await categoryIdParamSchema.safeParseAsync(req.params);
+
+        if(!validationResult.success){
+            return res.status(400).json({
+                status:false,
+                message:"Enter the Valid Category Id"
+            })
+        }
+
+        const {categoryId}=validationResult.data;
+
+        const category=await categoryModel.findById(categoryId);
+
+        if(!category){
+            return res.status(404).json({
+                status:false,
+                message:"Category not found"
+            })
+        }
+
+        if(!category.isActive){
+            return res.status(400).json({
+                status:false,
+                message:"Category already Inactive",
+                
+            })
+        }
+
+        category.isActive=false;
+
+        await category.save();
+
+        return res.status(200).json({
+            status:true,
+            message:"Category deactivated Successfully",
+            data:category,
+        })
+        
+    } catch (error) {
+        next(error);
+        
+    }
+};
+
+
+export const activateCategory=async(req,res,next)=>{
+    try {
+        const validationResult=await categoryIdParamSchema.safeParseAsync(req.params);
+
+        if(!validationResult.success){
+            return res.status(400).json({
+                status:false,
+                message:"Enter the Valid Category ID"
+            })
+        }
+
+        const {categoryId}=validationResult.data;
+
+        const category = await categoryModel.findById(categoryId);
+
+        if(!category){
+            return res.status(404).json({
+                status:false,
+                message:"Category not found"
+            })
+        }
+
+        if(category.isActive){
+            return res.status(400).json({
+                status:false,
+                message:"Category is already Active"
+            })
+        }
+
+        category.isActive=true;
+        await category.save();
+
+        return res.status(200).json({
+            status:true,
+            message:"Category Activated Successfully",
+            data:category
+        })
+    } catch (error) {
+        next(error);
+        
+    }
 }
