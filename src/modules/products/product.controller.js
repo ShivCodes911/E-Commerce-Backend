@@ -4,7 +4,8 @@ import storeModel from "../../models/store.model.js";
 
 import {generateSlug} from "../../utils/slugify.js";
 
-import { createProductBodySchema, getAllProductQuerySchema, productIdParamSchema, updateProductBodySchema } from "../../validations/product.validation.js";
+import { createProductBodySchema, getAllProductQuerySchema, productIdParamSchema, productImageParamsSchema, updateProductBodySchema } from "../../validations/product.validation.js";
+import { deleteFromCloudinary, uploadToCloudinary } from "../../utils/cloudinaryUtil.js";
 
 
 
@@ -316,6 +317,222 @@ export const updateProductById = async (req, res, next) => {
         });
     } catch (error) {
         next(error);
+    }
+};
+
+
+
+export const productImage=async(req,res,next)=>{
+    try {
+        const paramsValidation=await productIdParamSchema.safeParseAsync(req.params);
+
+        if(!paramsValidation.success){
+            return res.status(400).json({
+                status:false,
+                message:"Enter the Valid Params"
+            })
+        }
+
+        const {productId}=paramsValidation.data;
+
+        const product=await productModel.findById(productId);
+
+        if(!product){
+            return res.status(404).json({
+                status:false,
+                message:"Product not Found"
+            })
+        }
+
+        if(req.user.role==="supplier" && 
+            product.supplier.toString()!==req.user?.id ){
+            return res.status(403).json({
+                status:false,
+                message:"You cannot update the another supplier's product"
+            })
+        }
+
+        if(!req.files || req.files.length===0){
+            return res.status(400).json({
+                status:false,
+                message:"File not provided"
+            })
+        }
+
+        const images = await Promise.all(
+             req.files.map((file) =>
+            uploadToCloudinary(
+                file.buffer,
+                "shopkart/products/images"
+        )
+    )
+);
+        product.images.push(...images);
+
+        await product.save();
+
+        return res.status(200).json({
+            status:true,
+            message:"Images Uploaded Successfully",
+            data:product.images
+        });
+        
+    } catch (error) {
+        next(error);
+        
+    }
+};
+
+
+export const deleteProductImage=async(req,res,next)=>{
+    try {
+    const paramsValidation=await productImageParamsSchema.safeParseAsync(req.params);
+
+    if(!paramsValidation.success){
+        return res.status(400).json({
+            status:false,
+            message:"Enter valid Id"
+        })
+    }
+
+
+    const {productId,imageId}=paramsValidation.data;
+
+    const product=await productModel.findById(productId);
+
+    if(!product){
+        return res.status(404).json({
+            status:false,
+            message:"Product not Found"
+        })
+    }
+
+    if(req.user?.role=="supplier" && product.supplier.toString()!==req.user?.id){
+        return res.status(403).json({
+            status:false,
+            message:"Error:You can not delete another supplier's product Images"
+        })
+    }
+
+
+    const image=product.images.id(imageId);
+
+    if(!image){
+        return res.status(404).json({
+            status:false,
+            message:"image not found"
+        })
+    }
+
+    await deleteFromCloudinary(image.publicId);
+     
+   image.deleteOne();
+
+   // image.deleteOne() => delete the image which is passsed with imageId in productModel
+
+    await product.save();
+
+    return res.status(200).json({
+        status:true,
+        message:"Product Image deleted Successfully",
+        data:product.images
+    })
+
+   
+        
+    } catch (error) {
+        next(error);
+        
+    }
+};
+
+
+export const deactivateProduct=async(req,res,next)=>{
+    try {
+        const paramsValidation=await productIdParamSchema.safeParseAsync(req.params);
+
+        if(!paramsValidation.success){
+            return res.status(400).json({
+                status:false,
+                message:"Enter valid Param Id"
+            })
+        };
+
+        const {productId}=paramsValidation.data;
+
+        const product=await productModel.findById(productId);
+
+        if(!product){
+            return res.status(404).json({
+                status:false,
+                message:"Product not Found"
+            })
+        }
+
+        if(req.user?.role==="supplier" && product.supplier.toString()!==req.user?.id){
+            return res.status(403).json({
+                status:false,
+                message:"You cannot deactivate other supplier's product"
+            })
+        };
+
+        product.isActive=false;
+        await product.save();
+
+        return res.status(200).json({ 
+            status:true,
+            message:"Product deactivated successfully",
+            data:product
+        })
+        
+    } catch (error) {
+        next(error);
+        
+    }
+};
+
+
+export const activateProduct=async(req,res,next)=>{
+    try {
+        const paramsValidation=await productIdParamSchema.safeParseAsync(req.params);
+
+        if(!paramsValidation.success){
+            return res.status(400).json({
+                status:false,
+                message:"Enter valid Param Id"
+            })
+        };
+
+        const {productId}=paramsValidation.data;
+
+        const product=await productModel.findById(productId);
+
+        if(!product){
+            return res.status(404).json({
+                status:false,
+                message:"Product not Found"
+            })
+        }
+
+        if(req.user?.role==="supplier" && product.supplier.toString()!==req.user?.id){
+            return res.status(403).json({
+                status:false,
+                message:"You cannot activate other supplier's product"
+            })
+        };
+
+        product.isActive=true;
+        await product.save();
+
+        return res.status(200).json({ 
+            status:true,
+            message:"Product activated successfully",
+            data:product
+        })
+        
+    } catch (error) {
+        next(error);
+        
     }
 }
 

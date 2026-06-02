@@ -63,3 +63,11 @@ export const updateProductBodySchema = z.object({
 );
 
 
+export const productImageParamsSchema = z.object({
+    productId: z
+        .string()
+        .regex(/^[0-9a-fA-F]{24}$/, "Invalid Product Id"),
+    imageId: z
+        .string()
+        .regex(/^[0-9a-fA-F]{24}$/, "Invalid Image Id")
+});
