@@ -1,4 +1,4 @@
-import {z} from "zod";
+import { z} from "zod";
 
 export const createProductBodySchema=z.object({
     title:z.string().trim().min(1,"Title is required"),
@@ -29,9 +29,34 @@ export const createProductBodySchema=z.object({
 
 export const  getAllProductQuerySchema=z.object({
     page:z.coerce.number().int().min(1).default(1),
-    limit:z.coerce.number().int().min(1).max(80).default(25)
+    limit:z.coerce.number().int().min(1).max(80).default(25),
+    search:z.string().trim().optional(),
+    category:z.string().regex(/^[0-9a-fA-F]{24}$/).optional(),
+    brand:z.string().trim().optional(),
+    store:z.string().regex(/^[0-9a-fA-F]{24}$/).optional(),
+    minPrice:z.coerce.number().nonnegative().optional(),
+    maxPrice:z.coerce.number().nonnegative().optional(),
+    minRating:z.coerce.number().min(0).max(5).optional(),
+    sort:z.enum(["latest",
+        "oldest",
+        "price_asc",
+        "price_desc",
+        "highest_rated",
+    ]).default("latest"),
+}).refine(
+    (data) =>
+        data.minPrice === undefined ||
+        data.maxPrice === undefined ||
+        data.minPrice <= data.maxPrice,
+    {
+        message: "Minimum price cannot exceed maximum price",
+        path: ["maxPrice"]
+    }
+);
 
-});
+
+
+
 
 export const productIdParamSchema = z.object({
     productId: z

@@ -863,6 +863,36 @@ Return: products + totalCount + currentPage + totalPages
 ### 💡 Why This Way?
 Every filter runs inside the MongoDB query — not in JavaScript after fetching. For a 50,000-product catalog, JavaScript filtering would be catastrophically slow. Returning `totalCount` lets the frontend show "1–20 of 847 results" without a separate request.
 
+### Implemented Product List API
+
+```http
+GET /api/v1/products
+```
+
+Supported query parameters:
+
+| Parameter | Rules |
+|---|---|
+| `search` | Optional trimmed text; searches title, brand, and description |
+| `category` | Optional MongoDB ObjectId |
+| `brand` | Optional exact, case-insensitive brand |
+| `store` | Optional MongoDB ObjectId |
+| `minPrice` | Optional non-negative number |
+| `maxPrice` | Optional non-negative number; cannot be below `minPrice` |
+| `minRating` | Optional number from 0 to 5 |
+| `sort` | `latest`, `oldest`, `price_asc`, `price_desc`, or `highest_rated` |
+| `page` | Integer starting at 1; defaults to 1 |
+| `limit` | Integer from 1 to 80; defaults to 25 |
+
+Example:
+
+```http
+GET /api/v1/products?search=phone&category=<categoryId>&brand=Samsung&store=<storeId>&minPrice=5000&maxPrice=80000&minRating=4&sort=price_asc&page=1&limit=20
+```
+
+Only active products are returned. Search, filtering, sorting, counting, and
+pagination run in MongoDB. Phase 9 has been manually verified in Postman.
+
 ---
 
 ## PHASE 10 — Wishlist

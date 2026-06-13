@@ -106,21 +106,22 @@ export const getProduct=async(req,res,next)=>{
             })
         }
 
-        const {page,limit}=validationResult.data;
+        const {page,limit,search,category,brand,store,minPrice,maxPrice,minRating,sort}=validationResult.data;
 
 
         const skip= (page-1)*limit;
 
-        const search=req.query.search || "";
+        const filter={isActive:true};
 
-        const sort  = req.query.sort || "latest";
+       if(search){
+        filter.$or=[
+            {title:{$regex:search,$options:"i"}},
+            {brand:{$regex:search,$options:"i"}},
+            {description:{$regex:search,$options:"i"}}
+        ];
+       }
 
-        const filter={
-            isActive:true,
-            $or:[{ title: { $regex: search, $options: "i" } },
-        { brand: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } }]
-        }
+
 
 
 
@@ -134,17 +135,54 @@ export const getProduct=async(req,res,next)=>{
 // $options: "i"
 
 
+        if(category){
+            filter.category=category;
+        };
 
-
-       let sortOptions ={};
-
-        if(sort==="latest"){
-            sortOptions={createdAt:-1}
-        }else if(sort==="oldest"){
-            sortOptions={createdAt:1}
+        if(store){
+            filter.store=store;
         }
 
-        const products = await productModel.find(filter).skip(skip).sort(sortOptions).limit(limit);
+
+        if (brand) {
+            filter.brand = {
+                $regex: `^${brand}$`,
+                $options: "i"
+            };
+        };
+
+                if (minRating !== undefined) {
+            filter.ratingAverage = {
+                $gte: minRating
+            };
+        };
+
+             if (minPrice !== undefined || maxPrice !== undefined) {
+            filter.price = {};
+
+            if (minPrice !== undefined) {
+                filter.price.$gte = minPrice;
+            }
+
+            if (maxPrice !== undefined) {
+                filter.price.$lte = maxPrice;
+            }
+        }
+        
+
+
+
+         const sortOptions = {
+            latest: { createdAt: -1 },
+            oldest: { createdAt: 1 },
+            price_asc: { price: 1 },
+            price_desc: { price: -1 },
+            highest_rated: { ratingAverage: -1 }
+        };
+
+       
+
+        const products = await productModel.find(filter).skip(skip).sort(sortOptions[sort]).limit(limit);
 
        //if No Product is available , mongoDb Automaticaaly return Empty array
 
@@ -157,15 +195,16 @@ export const getProduct=async(req,res,next)=>{
         return res.status(200).json({
             status:true,
             message:"Here are all products !! ",
-            products:products,
+            data:{products,
 
             pagination:{
                 totalPages,
                 totalProducts,
-                currentpage:page,
+                currentPage:page,
                 limit
 
             }
+        }
         })
 
     } catch (error) {
