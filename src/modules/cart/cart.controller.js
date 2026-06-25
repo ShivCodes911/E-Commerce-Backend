@@ -1,9 +1,11 @@
-import { fa } from "zod/locales";
+
 import cartModel from "../../models/cart.model.js";
 import productModel from "../../models/product.model.js";
+import couponModel from "../../models/coupon.model.js";
 
 
-import { addToCartSchema, productIdParamSchema, updateCartSchema } from "../../validations/cart.validation.js";
+import { addToCartSchema, applyCouponSchema, productIdParamSchema, updateCartSchema } from "../../validations/cart.validation.js";
+
 
 // Reduce => study about it something new for me 
 
@@ -372,6 +374,176 @@ export const clearMyCart=async(req,res,next)=>{
             }
         })
         
+    } catch (error) {
+        next(error);
+        
+    }
+};
+
+export const applyCoupon=async(req,res,next)=>{
+    try {
+        const validationResult= await applyCouponSchema.safeParseAsync(req.body);
+
+        if(!validationResult.success){
+            return res.status(400).json({
+                status:false,
+                message:"Enter valid Body"
+            })
+        }
+
+        const {code} = validationResult.data;
+
+        const coupon = await couponModel.findOne({
+            code:code
+        });
+
+        if(!coupon){
+            return res.status(404).json({
+                status:false,
+                message:"coupon not found"
+            })
+        }
+
+        if(coupon.isActive===false){
+            return res.status(400).json({
+                status:false,
+                message:"coupon is not active now"
+            })
+        }
+
+        if(coupon.expiresAt <= new Date()){
+            return res.status(400).json({
+                status:false,
+                message:"Coupon is expired"
+            })
+        }
+
+        if(coupon.usedCount >= coupon.usageLimit ){
+            return res.status(400).json({
+                status:false,
+                message:"Usage limit has been reached"
+            })
+        }
+
+        const customersCart = await cartModel.findOne({user:req.user?.id});
+
+        if(!customersCart || customersCart.items.length === 0 ){
+            return res.status(400).json({
+                status:false,
+                message:"customersCart not found"
+            })
+        }
+
+        if(customersCart.coupon){
+            return res.status(400).json({
+                status:false,
+                message:"A coupon is already applied"
+            })
+        }
+
+        if(customersCart.subtotal < coupon.minimumOrderAmount){
+            return res.status(400).json({
+                status:false,
+                message:"Minimum Order amount not met"
+            })
+        }
+
+       let discount =0 ;
+
+       if(coupon.discountType==="percentage"){
+         discount = customersCart.subtotal * coupon.discountValue / 100;
+
+        if(coupon.maximumDiscountAmount > 0 ){
+            discount=Math.min(discount,coupon.maximumDiscountAmount);
+        }
+       }
+
+       if(coupon.discountType==="fixed"){
+        discount = coupon.discountValue;
+       }
+
+       discount = Math.min(discount,customersCart.subtotal);
+
+
+       customersCart.coupon = coupon._id;
+       customersCart.discount=discount;
+       customersCart.total=customersCart.subtotal - discount;
+
+
+       await customersCart.save();
+
+       await customersCart.populate([
+        {
+            path:"items.product",
+            select:"title price discountPrice images stock isActive"
+        },
+        {
+            path:"coupon"
+        }
+       ])
+
+
+       return res.status(200).json({
+        status:true,
+        message:"Coupon applied successfully",
+        data:{
+            cart:customersCart
+        }
+       })
+
+
+    } catch (error) {
+        next(error);
+        
+    }
+};
+
+
+export const removeCoupon=async(req,res,next)=>{
+    try {
+        const customersCart = await cartModel.findOne({
+            user:req.user?.id
+        })
+
+        if(!customersCart){
+            return res.status(404).json({
+                status:false,
+                message:"Cart not found"
+            })
+        }
+
+        if(customersCart.items.length === 0){
+            return res.status(400).json({
+                status:false,
+                message:"Cart is Empty"
+            })
+        }
+        
+        if (!customersCart.coupon) {
+    return res.status(400).json({
+        status: false,
+        message: "No coupon applied to cart"
+    });
+}
+
+        customersCart.coupon = null;
+        customersCart.discount=0;
+        customersCart.total = customersCart.subtotal;
+
+        await customersCart.save();
+
+        await customersCart.populate({
+            path:"items.product",
+            select:"title price discountPrice images stock isActive"
+        })
+
+        return res.status(200).json({
+            status:true,
+            message:"coupon removed successfully",
+            data:{
+                cart:customersCart
+            }
+        })
     } catch (error) {
         next(error);
         
