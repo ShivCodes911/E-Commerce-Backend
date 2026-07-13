@@ -9,6 +9,7 @@ import productRouter from "./modules/products/product.routes.js";
 import wishlistRouter from "./modules/wishlist/wishlist.routes.js";
 import cartRouter from "./modules/cart/cart.routes.js";
 import couponRouter from "./modules/coupon/coupon.routes.js";
+import orderRouter from "./modules/order/order.routes.js";
 
 import { errorMiddleware } from "./middlewares/error.middleware.js";
 
@@ -37,6 +38,7 @@ app.use("/api/v1/products",productRouter);
 app.use("/api/v1/wishlist",wishlistRouter);
 app.use("/api/v1/cart",cartRouter);
 app.use("/api/v1/coupons",couponRouter);
+app.use("/api/v1/orders",orderRouter);
 
 
 app.use(errorMiddleware);
