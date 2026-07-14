@@ -14,11 +14,11 @@ export const transporter = nodemailer.createTransport({
     }
 });
 
-transporter.verify((error)=>{
-    if(error){
-        console.log("Error connecting to Email server",error)
-    }
-    else{
-        console.log("Email Server is Up and Ready to send the Verification Code !")
-    }
-});
+// transporter.verify((error)=>{
+//     if(error){
+//         console.log("Error connecting to Email server",error)
+//     }
+//     else{
+//         console.log("Email Server is Up and Ready to send the Verification Code !")
+//     }
+// });
