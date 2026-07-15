@@ -17,7 +17,7 @@ import { errorMiddleware } from "./middlewares/error.middleware.js";
 const app = express();
 
 app.use(cors({
-    origin:"http://localhost:5000",
+    origin:["http://localhost:5000","http://localhost:5500","http://127.0.0.1:5500"],
     credentials:true,
     methods:["GET","POST","PATCH","PUT","DELETE","OPTIONS"],
     allowedHeaders:["Authorization","Content-Type"]
@@ -46,5 +46,4 @@ app.use("/api/v1/payments",paymentRouter);
 app.use(errorMiddleware);
 
 export default app;
-
 

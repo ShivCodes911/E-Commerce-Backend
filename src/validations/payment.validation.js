@@ -29,5 +29,5 @@ export const paymentFailureSchema = z.object({
     razorpayOrderId: z
         .string()
         .trim()
-        .min(1, "Razorpay order id is required")
+        .min(1,"Razorpay order id is required")
 });
