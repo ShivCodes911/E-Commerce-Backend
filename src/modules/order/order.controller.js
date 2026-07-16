@@ -4,6 +4,8 @@ import cartModel from "../../models/cart.model.js";
 
 import { checkoutOrderSchema ,orderIdParamSchema ,cancelOrderSchema} from "../../validations/order.validation.js";
 
+import { restoreStockForOrder } from "../../services/inventory.services.js";
+
 
 
 export const checkoutOrder=async(req,res,next)=>{
@@ -291,6 +293,8 @@ export const cancelOrder = async (req, res, next) => {
         order.orderStatus = "cancelled";
         order.cancelledAt = new Date();
         order.cancelReason = cancelReason || null;
+
+        await restoreStockForOrder(order);
 
         await order.save();
 
