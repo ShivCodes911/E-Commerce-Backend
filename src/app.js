@@ -11,6 +11,7 @@ import cartRouter from "./modules/cart/cart.routes.js";
 import couponRouter from "./modules/coupon/coupon.routes.js";
 import orderRouter from "./modules/order/order.routes.js";
 import paymentRouter from "./modules/payment/payment.routes.js"
+import adminRouter from "./modules/admin/admin.routes.js";
 
 import { errorMiddleware } from "./middlewares/error.middleware.js";
 
@@ -41,6 +42,7 @@ app.use("/api/v1/cart",cartRouter);
 app.use("/api/v1/coupons",couponRouter);
 app.use("/api/v1/orders",orderRouter);
 app.use("/api/v1/payments",paymentRouter);
+app.use("/api/v1/admin",adminRouter);
 
 
 app.use(errorMiddleware);

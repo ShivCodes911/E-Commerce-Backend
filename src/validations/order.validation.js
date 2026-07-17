@@ -65,3 +65,12 @@ export const cancelOrderSchema = z.object({
         .max(200, "Cancel reason cannot exceed 200 characters")
         .optional()
 });
+
+export const updateOrderStatusSchema = z.object({
+    orderStatus: z.enum(
+        ["pending", "confirmed", "packed", "shipped", "delivered", "cancelled"],
+        {
+            message: "Invalid order status"
+        }
+    )
+});
