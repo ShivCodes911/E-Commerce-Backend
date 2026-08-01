@@ -2,8 +2,8 @@ import reviewModel from "../../models/review.model.js";
 import orderModel from "../../models/order.model.js"
 import productModel from "../../models/product.model.js";
 
-import { productIdParamSchema, submitReviewSchema } from "../../validations/review.validation.js";
-import { uploadToCloudinary } from "../../utils/cloudinaryUtil.js";
+import { productIdParamSchema, submitReviewSchema ,reviewIdParamSchema} from "../../validations/review.validation.js";
+import { uploadToCloudinary ,deleteFromCloudinary} from "../../utils/cloudinaryUtil.js";
 
 export const sumitReview= async(req,res,next)=>{
     try {
@@ -154,6 +154,81 @@ export const getProductReviews = async (req, res, next) => {
             data: {
                 reviews
             }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+export const deleteReview = async (req, res, next) => {
+    try {
+        const validationResult = await reviewIdParamSchema.safeParseAsync(req.params);
+
+        if (!validationResult.success) {
+            return res.status(400).json({
+                status: false,
+                message: "Enter a valid review id"
+            });
+        }
+
+        const userId = req.user?.id;
+
+        if (!userId) {
+            return res.status(401).json({
+                status: false,
+                message: "User is unauthorized"
+            });
+        }
+
+        const { reviewId } = validationResult.data;
+
+        const review = await reviewModel.findOne({
+            _id: reviewId,
+            user: userId
+        });
+
+        if (!review) {
+            return res.status(404).json({
+                status: false,
+                message: "Review not found"
+            });
+        }
+
+        const productId = review.product;
+
+        if (review.images && review.images.length > 0) {
+            await Promise.all(
+                review.images
+                    .filter((image) => image.publicId)
+                    .map((image) => deleteFromCloudinary(image.publicId))
+            );
+        }
+
+        await review.deleteOne();
+
+        const remainingReviews = await reviewModel.find({
+            product: productId
+        });
+
+        const ratingCount = remainingReviews.length;
+
+        const totalRating = remainingReviews.reduce((sum, item) => {
+            return sum + item.rating;
+        }, 0);
+
+        const ratingAverage = ratingCount > 0
+            ? totalRating / ratingCount
+            : 0;
+
+        await productModel.findByIdAndUpdate(productId, {
+            ratingCount,
+            ratingAverage
+        });
+
+        return res.status(200).json({
+            status: true,
+            message: "Review deleted successfully"
         });
     } catch (error) {
         next(error);
