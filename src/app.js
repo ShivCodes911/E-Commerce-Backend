@@ -14,6 +14,7 @@ import paymentRouter from "./modules/payment/payment.routes.js"
 import adminRouter from "./modules/admin/admin.routes.js";
 import supplierRouter from "./modules/supplier/supplier.routes.js";
 import reviewRouter from "./modules/review/review.routes.js";
+import notificationRouter from "./modules/notification/notification.routes.js"
 
 
 
@@ -50,6 +51,7 @@ app.use("/api/v1/payments",paymentRouter);
 app.use("/api/v1/admin",adminRouter);
 app.use("/api/v1/supplier",supplierRouter);
 app.use("/api/v1/reviews",reviewRouter);
+app.use("/api/v1/notifications",notificationRouter);
 
 
 app.use(errorMiddleware);
