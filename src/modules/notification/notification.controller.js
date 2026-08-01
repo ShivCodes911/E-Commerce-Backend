@@ -31,4 +31,32 @@ export const getMyNotifications = async (req, res, next) => {
     }
 };
 
+export const getUnreadNotificationCount = async (req, res, next) => {
+    try {
+        const userId = req.user?.id;
+
+        if (!userId) {
+            return res.status(401).json({
+                status: false,
+                message: "User is unauthorized"
+            });
+        }
+
+        const unreadCount = await notificationModel.countDocuments({
+            user: userId,
+            isRead: false
+        });
+
+        return res.status(200).json({
+            status: true,
+            message: "Unread notification count fetched successfully",
+            data: {
+                unreadCount
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 
