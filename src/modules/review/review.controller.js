@@ -2,7 +2,7 @@ import reviewModel from "../../models/review.model.js";
 import orderModel from "../../models/order.model.js"
 import productModel from "../../models/product.model.js";
 
-import { submitReviewSchema } from "../../validations/review.validation.js";
+import { productIdParamSchema, submitReviewSchema } from "../../validations/review.validation.js";
 import { uploadToCloudinary } from "../../utils/cloudinaryUtil.js";
 
 export const sumitReview= async(req,res,next)=>{
@@ -123,27 +123,39 @@ return res.status(201).json({
         newReview
     }
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    } catch (error) {
+} catch (error) {
         next(error);
         
     }
-}
+};
+
+
+export const getProductReviews = async (req, res, next) => {
+    try {
+        const validationResult = await productIdParamSchema.safeParseAsync(req.params);
+
+        if (!validationResult.success) {
+            return res.status(400).json({
+                status: false,
+                message: "Enter a valid product id"
+            });
+        }
+
+        const { productId } = validationResult.data;
+
+        const reviews = await reviewModel
+            .find({ product: productId })
+            .populate("user", "name avatar")
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            status: true,
+            message: "Product reviews fetched successfully",
+            data: {
+                reviews
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
