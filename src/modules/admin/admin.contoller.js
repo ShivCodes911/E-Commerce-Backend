@@ -1,5 +1,7 @@
 import orderModel from "../../models/order.model.js";
 import { orderIdParamSchema, updateOrderStatusSchema } from "../../validations/order.validation.js";
+import { createNotification } from "../../services/notification.services.js";
+
 
 export const updateOrderStatusByAdmin =async(req,res,next)=>{
     try {
@@ -46,6 +48,16 @@ export const updateOrderStatusByAdmin =async(req,res,next)=>{
         };
 
         order.orderStatus=orderStatus;
+
+        // ADD THIS 👇 — notify the customer about status change
+await createNotification({
+    user: order.user,
+    title: "Order status updated",
+    message: `Your order #${order._id} is now ${orderStatus}.`,
+    type: "order",
+    relatedOrder: order._id,
+});
+
         await order.save();
 
         return res.status(200).json({

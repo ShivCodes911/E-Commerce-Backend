@@ -5,6 +5,8 @@ import cartModel from "../../models/cart.model.js";
 import { checkoutOrderSchema ,orderIdParamSchema ,cancelOrderSchema} from "../../validations/order.validation.js";
 
 import { restoreStockForOrder } from "../../services/inventory.services.js";
+import { createNotification } from "../../services/notification.services.js";
+
 
 
 
@@ -293,6 +295,15 @@ export const cancelOrder = async (req, res, next) => {
         order.orderStatus = "cancelled";
         order.cancelledAt = new Date();
         order.cancelReason = cancelReason || null;
+
+        // ADD THIS 👇 — notify the customer that their order is cancelled
+await createNotification({
+    user: order.user,
+    title: "Order cancelled",
+    message: `Your order #${order._id} has been cancelled.`,
+    type: "order",
+    relatedOrder: order._id,
+});
 
         await restoreStockForOrder(order);
 

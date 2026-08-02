@@ -4,6 +4,8 @@ import paymentModel from "../../models/payment.model.js";
 import orderModel from "../../models/order.model.js";
 import razorpayInstance from "../../config/razorpay.config.js";
 
+import { createNotification } from "../../services/notification.services.js";
+
 import {createPaymentSchema, paymentFailureSchema, verifyPaymentSchema} from "../../validations/payment.validation.js";
 
 
@@ -158,6 +160,10 @@ export const verifyPayment=async(req,res,next)=>{
         payment.status="success";
         payment.paidAt=new Date();
 
+        
+
+
+
         const order= await orderModel.findOne({
             user:req.user?.id,
              _id: payment.order, 
@@ -177,7 +183,19 @@ export const verifyPayment=async(req,res,next)=>{
             status:false,
             message:"Order payment is cancelled"
         })
-    }
+    };
+
+
+    // NOW here we will give notification using the function created in notification
+        //notification.services.js
+
+        await createNotification({
+  user: order.user,
+  title: "Payment successful",
+  message: `Your payment for order #${order._id} was successful.`,
+  type: "payment",
+  relatedOrder: order._id,
+});
 
         order.paymentStatus="paid";
         await order.save();
