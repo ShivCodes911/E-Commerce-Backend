@@ -125,5 +125,29 @@ export const getUserById = async (req, res, next) => {
     }
 };
 
+export const toggleUserAccount = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const user = await userModel.findById(id);
+        if (!user) {
+            return res.status(404).json({
+                status: false,
+                message: "User not found"
+            });
+        }
+        user.isActive = ! user.isActive;
+        await user.save();
+        return res.status(200).json({
+            status: true,
+            message: `User account ${user.isActive ? "activated" : "deactivated"} successfully`,
+            data: {
+                user
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 
 
