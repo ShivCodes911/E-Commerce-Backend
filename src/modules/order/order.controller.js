@@ -146,6 +146,20 @@ customersCart.total = 0;
 
 await customersCart.save();
 
+// Notify each supplier whose products are in this order
+const supplierIds = [...new Set(orderItems.map(item => item.supplier.toString()))];
+await Promise.all(
+    supplierIds.map(supplierId =>
+        createNotification({
+            user: supplierId,
+            title: "New order received",
+            message: `You have a new order #${order._id}. Check your supplier dashboard.`,
+            type: "order",
+            relatedOrder: order._id,
+        })
+    )
+);
+
 return res.status(201).json({
     status: true,
     message: "Order placed successfully",

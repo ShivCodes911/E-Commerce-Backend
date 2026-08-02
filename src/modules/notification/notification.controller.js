@@ -113,4 +113,33 @@ export const markNotificationAsRead = async (req, res, next) => {
     }
 };
 
+export const markAllNotificationsAsRead = async (req, res, next) => {
+    try {
+        const userId = req.user?.id;
+
+        if (!userId) {
+            return res.status(401).json({
+                status: false,
+                message: "User is unauthorized"
+            });
+        }
+
+        const result = await notificationModel.updateMany(
+            { user: userId, isRead: false },
+            { $set: { isRead: true } }
+        );
+
+        return res.status(200).json({
+            status: true,
+            message: "All notifications marked as read",
+            data: {
+                updated: result.modifiedCount
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
 
