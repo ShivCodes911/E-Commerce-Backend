@@ -1,4 +1,7 @@
 import orderModel from "../../models/order.model.js";
+import userModel from "../../models/user.models.js";
+
+
 import { orderIdParamSchema, updateOrderStatusSchema } from "../../validations/order.validation.js";
 import { createNotification } from "../../services/notification.services.js";
 
@@ -73,4 +76,32 @@ await createNotification({
         
     }
 };
+
+export const getAllUsers = async (req, res, next) => {
+    try {
+        const { role, isActive } = req.query;
+        const filter = {};
+        if (role) {
+            filter.role = role;
+        }
+        if (isActive !== undefined) {
+            filter.isActive = isActive === "true";
+        }
+        const users = await userModel
+            .find(filter)
+            .select("-password")
+            .sort({ createdAt: -1 });
+        return res.status(200).json({
+            status: true,
+            message: "Users fetched successfully",
+            data: {
+                users
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
 
