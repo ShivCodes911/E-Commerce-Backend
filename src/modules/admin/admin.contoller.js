@@ -170,5 +170,23 @@ export const getAllSuppliers = async (req, res, next) => {
     }
 };
 
+export const getAllStores = async (req, res, next) => {
+    try {
+        const stores = await storeModel
+            .find()
+            .populate("owner", "name email")
+            .sort({ createdAt: -1 });
+        return res.status(200).json({
+            status: true,
+            message: "Stores fetched successfully",
+            data: {
+                stores
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 
 
