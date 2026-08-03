@@ -1,5 +1,7 @@
 import orderModel from "../../models/order.model.js";
 import userModel from "../../models/user.models.js";
+import storeModel from "../../models/store.model.js";
+
 
 
 import { orderIdParamSchema, updateOrderStatusSchema } from "../../validations/order.validation.js";
@@ -142,6 +144,25 @@ export const toggleUserAccount = async (req, res, next) => {
             message: `User account ${user.isActive ? "activated" : "deactivated"} successfully`,
             data: {
                 user
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+export const getAllSuppliers = async (req, res, next) => {
+    try {
+        const suppliers = await userModel
+            .find({ role: "supplier" })
+            .select("-password")
+            .sort({ createdAt: -1 });
+        return res.status(200).json({
+            status: true,
+            message: "Suppliers fetched successfully",
+            data: {
+                suppliers
             }
         });
     } catch (error) {
