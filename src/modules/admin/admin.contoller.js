@@ -1,6 +1,8 @@
 import orderModel from "../../models/order.model.js";
 import userModel from "../../models/user.models.js";
 import storeModel from "../../models/store.model.js";
+import productModel from "../../models/product.model.js";
+
 
 
 
@@ -207,7 +209,7 @@ export const verifyStore = async (req, res, next) => {
         }
 
         // Set store verification status: true if action is "approve", otherwise false
-        
+
         store.isVerified = action === "approve";
         await store.save();
         return res.status(200).json({
@@ -223,4 +225,22 @@ export const verifyStore = async (req, res, next) => {
 };
 
 
-
+export const getAllProducts = async (req, res, next) => {
+    try {
+        const products = await productModel
+            .find()  //It simply returns all documents in the products collection.
+            .populate("supplier", "name email")
+            .populate("store", "name")
+            .populate("category", "name")
+            .sort({ createdAt: -1 });
+        return res.status(200).json({
+            status: true,
+            message: "Products fetched successfully",
+            data: {
+                products
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
