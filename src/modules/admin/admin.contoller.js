@@ -188,5 +188,39 @@ export const getAllStores = async (req, res, next) => {
     }
 };
 
+export const verifyStore = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { action } = req.body;
+        if (!["approve", "reject"].includes(action)) {
+            return res.status(400).json({
+                status: false,
+                message: "Action must be approve or reject"
+            });
+        }
+        const store = await storeModel.findById(id);
+        if (!store) {
+            return res.status(404).json({
+                status: false,
+                message: "Store not found"
+            });
+        }
+
+        // Set store verification status: true if action is "approve", otherwise false
+        
+        store.isVerified = action === "approve";
+        await store.save();
+        return res.status(200).json({
+            status: true,
+            message: `Store ${action === "approve" ? "approved" : "rejected"} successfully`,
+            data: {
+                store
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 
 
