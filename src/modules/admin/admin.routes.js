@@ -1,6 +1,6 @@
 import express from "express";
 
-import { getAllProducts, getAllStores, getAllSuppliers, getAllUsers, getUserById, toggleUserAccount, updateOrderStatusByAdmin, verifyStore } from "./admin.contoller.js";
+import { getAllProducts, getAllStores, getAllSuppliers, getAllUsers, getUserById, toggleUserAccount, updateOrderStatusByAdmin, updateProductByAdmin, verifyStore } from "./admin.contoller.js";
 
 import { UserAuthenticationMiddleware } from "../../middlewares/auth.middleware.js";
 import { roleBasedAccessMiddleware } from "../../middlewares/role.middleware.js";
@@ -15,6 +15,7 @@ router.get("/suppliers",UserAuthenticationMiddleware,roleBasedAccessMiddleware("
 router.get("/stores",UserAuthenticationMiddleware,roleBasedAccessMiddleware("admin"),getAllStores);
 router.patch("/stores/:id/verify",UserAuthenticationMiddleware,roleBasedAccessMiddleware("admin"),verifyStore);
 router.get("/products",UserAuthenticationMiddleware,roleBasedAccessMiddleware("admin"),getAllProducts);
+router.patch("/products/:id",UserAuthenticationMiddleware,roleBasedAccessMiddleware("admin"),updateProductByAdmin);
 
 
 
