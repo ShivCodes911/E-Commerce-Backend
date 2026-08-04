@@ -275,3 +275,23 @@ export const updateProductByAdmin = async (req, res, next) => {
         next(error);
     }
 };
+
+export const deleteProductByAdmin = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const product = await productModel.findById(id);
+        if (!product) {
+            return res.status(404).json({
+                status: false,
+                message: "Product not found"
+            });
+        }
+        await product.deleteOne();
+        return res.status(200).json({
+            status: true,
+            message: "Product deleted successfully"
+        });
+    } catch (error) {
+        next(error);
+    }
+};
