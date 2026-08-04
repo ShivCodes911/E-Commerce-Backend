@@ -2,6 +2,7 @@ import orderModel from "../../models/order.model.js";
 import userModel from "../../models/user.models.js";
 import storeModel from "../../models/store.model.js";
 import productModel from "../../models/product.model.js";
+import paymentModel from "../../models/payment.model.js";
 
 
 
@@ -290,6 +291,35 @@ export const deleteProductByAdmin = async (req, res, next) => {
         return res.status(200).json({
             status: true,
             message: "Product deleted successfully"
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getAllOrders = async (req, res, next) => {
+    try {
+        const { status, date } = req.query;
+        const filter = {};
+        if (status) {
+            filter.orderStatus = status;
+        }
+        if (date) {
+            const start = new Date(date);
+            const end = new Date(date);
+            end.setDate(end.getDate() + 1);
+            filter.createdAt = { $gte: start, $lt: end };
+        }
+        const orders = await orderModel
+            .find(filter)
+            .populate("user", "name email")
+            .sort({ createdAt: -1 });
+        return res.status(200).json({
+            status: true,
+            message: "Orders fetched successfully",
+            data: {
+                orders
+            }
         });
     } catch (error) {
         next(error);
