@@ -3,6 +3,8 @@ import userModel from "../../models/user.models.js";
 import storeModel from "../../models/store.model.js";
 import productModel from "../../models/product.model.js";
 import paymentModel from "../../models/payment.model.js";
+import couponModel from "../../models/coupon.model.js";
+
 
 
 
@@ -338,6 +340,24 @@ export const getAllPayments = async (req, res, next) => {
             message: "Payments fetched successfully",
             data: {
                 payments
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+export const getAllCoupons = async (req, res, next) => {
+    try {
+        const coupons = await couponModel
+            .find()
+            .sort({ createdAt: -1 });
+        return res.status(200).json({
+            status: true,
+            message: "Coupons fetched successfully",
+            data: {
+                coupons
             }
         });
     } catch (error) {
