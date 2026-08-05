@@ -1,6 +1,6 @@
 import express from "express";
 
-import { deleteProductByAdmin, getAllOrders, getAllProducts, getAllStores, getAllSuppliers, getAllUsers, getUserById, toggleUserAccount, updateOrderStatusByAdmin, updateProductByAdmin, verifyStore } from "./admin.contoller.js";
+import { deleteProductByAdmin, getAllOrders, getAllPayments, getAllProducts, getAllStores, getAllSuppliers, getAllUsers, getUserById, toggleUserAccount, updateOrderStatusByAdmin, updateProductByAdmin, verifyStore } from "./admin.contoller.js";
 
 import { UserAuthenticationMiddleware } from "../../middlewares/auth.middleware.js";
 import { roleBasedAccessMiddleware } from "../../middlewares/role.middleware.js";
@@ -18,6 +18,7 @@ router.get("/products",UserAuthenticationMiddleware,roleBasedAccessMiddleware("a
 router.patch("/products/:id",UserAuthenticationMiddleware,roleBasedAccessMiddleware("admin"),updateProductByAdmin);
 router.delete("/products/:id",UserAuthenticationMiddleware,roleBasedAccessMiddleware("admin"),deleteProductByAdmin);
 router.get("/orders",UserAuthenticationMiddleware,roleBasedAccessMiddleware("admin"),getAllOrders);
+router.get("/payments", UserAuthenticationMiddleware, roleBasedAccessMiddleware("admin"), getAllPayments);
 
 
 

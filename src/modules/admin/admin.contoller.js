@@ -325,3 +325,22 @@ export const getAllOrders = async (req, res, next) => {
         next(error);
     }
 };
+
+export const getAllPayments = async (req, res, next) => {
+    try {
+        const payments = await paymentModel
+            .find()
+            .populate("user", "name email")
+            .populate("order", "total orderStatus")
+            .sort({ createdAt: -1 });
+        return res.status(200).json({
+            status: true,
+            message: "Payments fetched successfully",
+            data: {
+                payments
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
