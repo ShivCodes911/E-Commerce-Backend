@@ -403,3 +403,33 @@ export const createCoupon = async (req, res, next) => {
         next(error);
     }
 };
+
+
+export const updateCoupon = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const coupon = await couponModel.findById(id);
+        if (!coupon) {
+            return res.status(404).json({
+                status: false,
+                message: "Coupon not found"
+            });
+        }
+        const allowedFields = ["discountType", "discountValue", "minimumOrderAmount", "maximumDiscountAmount", "usageLimit", "expiresAt"];
+        allowedFields.forEach(field => {
+            if (req.body[field] !== undefined) {
+                coupon[field] = req.body[field];
+            }
+        });
+        await coupon.save();
+        return res.status(200).json({
+            status: true,
+            message: "Coupon updated successfully",
+            data: {
+                coupon
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
