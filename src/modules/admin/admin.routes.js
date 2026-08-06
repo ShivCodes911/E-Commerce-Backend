@@ -1,6 +1,6 @@
 import express from "express";
 
-import { createCoupon, deleteProductByAdmin, getAllCoupons, getAllOrders, getAllPayments, getAllProducts, getAllStores, getAllSuppliers, getAllUsers, getUserById, toggleUserAccount, updateCoupon, updateOrderStatusByAdmin, updateProductByAdmin, verifyStore } from "./admin.contoller.js";
+import { createCoupon, deactivateCoupon, deleteProductByAdmin, getAllCoupons, getAllOrders, getAllPayments, getAllProducts, getAllStores, getAllSuppliers, getAllUsers, getUserById, toggleUserAccount, updateCoupon, updateOrderStatusByAdmin, updateProductByAdmin, verifyStore } from "./admin.contoller.js";
 
 import { UserAuthenticationMiddleware } from "../../middlewares/auth.middleware.js";
 import { roleBasedAccessMiddleware } from "../../middlewares/role.middleware.js";
@@ -22,6 +22,7 @@ router.get("/payments", UserAuthenticationMiddleware, roleBasedAccessMiddleware(
 router.get("/coupons", UserAuthenticationMiddleware, roleBasedAccessMiddleware("admin"), getAllCoupons);
 router.post("/coupons", UserAuthenticationMiddleware, roleBasedAccessMiddleware("admin"), createCoupon);
 router.patch("/coupons/:id", UserAuthenticationMiddleware, roleBasedAccessMiddleware("admin"), updateCoupon);
+router.patch("/coupons/:id/deactivate", UserAuthenticationMiddleware, roleBasedAccessMiddleware("admin"), deactivateCoupon);
 
 
 

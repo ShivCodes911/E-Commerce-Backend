@@ -433,3 +433,27 @@ export const updateCoupon = async (req, res, next) => {
         next(error);
     }
 };
+
+export const deactivateCoupon = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const coupon = await couponModel.findById(id);
+        if (!coupon) {
+            return res.status(404).json({
+                status: false,
+                message: "Coupon not found"
+            });
+        }
+        coupon.isActive = false;
+        await coupon.save();
+        return res.status(200).json({
+            status: true,
+            message: "Coupon deactivated successfully",
+            data: {
+                coupon
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
