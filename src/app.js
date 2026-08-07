@@ -1,6 +1,11 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+
+
+
 import authRouter from "./modules/auth/auth.routes.js";
 import userRouter from "./modules/users/user.routes.js";
 import storeRouter from "./modules/stores/store.routes.js";
@@ -22,6 +27,23 @@ import notificationRouter from "./modules/notification/notification.routes.js"
 import { errorMiddleware } from "./middlewares/error.middleware.js";
 
 const app = express();
+// Security headers — sets safe HTTP response headers on every request
+app.use(helmet());
+
+// Rate limiters
+
+const generalLimiter = rateLimit({
+    windowMs: 60 * 1000,        // 1 minute window
+    max: 100,                    // 100 requests per IP per minute
+    message: { status: false, message: "Too many requests, please try again later" }
+});
+
+
+// Apply general limiter to all routes
+app.use(generalLimiter);
+
+
+
 
 app.use(cors({
     origin:["http://localhost:5000","http://localhost:5500","http://127.0.0.1:5500"],
